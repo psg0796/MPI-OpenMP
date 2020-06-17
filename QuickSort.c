@@ -148,14 +148,9 @@ int main(int argc, char* argv[]) {
     elapsed_time = - MPI_Wtime();
   }
 
-  MPI_Scatterv(numbers, sendcounts, displs, MPI_INT, numbersPerProcess, recvcount, MPI_INT, root, MPI_COMM_WORLD);
+	MPI_Scatter(sendcounts, 1, MPI_INT, &sendCountBackToRoot, 1, MPI_INT, root, MPI_COMM_WORLD);
 
-  for(int i = 0; i < 10; i++) {
-    if(numbersPerProcess[i] == NULL) {
-      break;
-    }
-    sendCountBackToRoot++;
-  }
+  MPI_Scatterv(numbers, sendcounts, displs, MPI_INT, numbersPerProcess, recvcount, MPI_INT, root, MPI_COMM_WORLD);
 
   // printArraySlice(numbers, 0, size - 1);
   QuickSort(numbersPerProcess, 0, sendCountBackToRoot - 1);
@@ -166,7 +161,7 @@ int main(int argc, char* argv[]) {
   if(my_rank == root) {
     elapsed_time += MPI_Wtime();
     printf("Time taken = %f\n", elapsed_time);
-  //   printArraySlice(numbers, 0, size - 1);
+    // printArraySlice(numbers, 0, size - 1);
   }
 
   MPI_Finalize();
