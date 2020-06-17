@@ -177,7 +177,7 @@ int main(int argc, char **argv) {
   if(my_rank == root) {
     elapsed_time += MPI_Wtime();
 
-    printf("Time taken for Mean Vector calculation\t%lf\n", elapsed_time);
+    printf("Time taken for Mean Vector calculation\t%lf\n\n", elapsed_time);
     printf("Mean Vector:\n\n");
     for(int i = 0; i < 4; i++) {
       printf("%f\t", MeanVector[i]);
@@ -215,7 +215,7 @@ int main(int argc, char **argv) {
   if(my_rank == root) {
     elapsed_time += MPI_Wtime();
 
-    printf("Time taken for Covariance Matrix calculation\t%lf\n", elapsed_time);
+    printf("Time taken for Covariance Matrix calculation\t%lf\n\n", elapsed_time);
     printf("Covariance Matrix:\n\n");
     for(int i = 0; i < 4; i++) {
       for(int j = 0; j < 4; j++) {

@@ -39,7 +39,7 @@ int main(int argc, char* argv[]) {
 
   if(my_rank == 0){  
     elapsed_time += MPI_Wtime();
-    printf("Time taken = %f\n", elapsed_time);
+    printf("Time taken = %f\n\n", elapsed_time);
   }
 
   MPI_Finalize();
