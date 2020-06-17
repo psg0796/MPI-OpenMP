@@ -126,7 +126,7 @@ void findCovarianceMatrix(float **CovarianceMatrix, float MeanVector[], float **
 int main(int argc, char **argv) {
   double elapsed_time;
   int number_of_vectors = 0, number_of_vectors_per_process = 0;
-  float **VectorMatrix, **CovarianceMatrix, *VectorMatrixLinear, VectorMatrixLinearBuff[1000000];
+  float **VectorMatrix, CovarianceMatrix[4][4], *VectorMatrixLinear, VectorMatrixLinearBuff[1000000];
   float MeanVector[4], SumVector[4];
   int my_rank, num_process, root = 0;
 
@@ -143,12 +143,6 @@ int main(int argc, char **argv) {
     }
 
     VectorMatrixLinear = (float*)malloc(4*number_of_vectors*sizeof(float));
-
-    CovarianceMatrix = (float**)malloc(4*sizeof(float*));
-
-    for(int i = 0; i < 4; i++) {
-      CovarianceMatrix[i] = (float*)malloc(4*sizeof(float));
-    }
 
     storeNumbersFromFileRead(INPUT_FILE, VectorMatrixLinear, number_of_vectors);
   }
@@ -176,10 +170,11 @@ int main(int argc, char **argv) {
     MPI_Allreduce(&SumVectorLocal[i], &SumVector[i], 1, MPI_FLOAT, MPI_SUM, MPI_COMM_WORLD);
   }
 
+  for(int i = 0; i < 4; i++) {
+    MeanVector[i] = SumVector[i] / number_of_vectors;
+  }
+
   if(my_rank == root) {
-    for(int i = 0; i < 4; i++) {
-      MeanVector[i] = SumVector[i] / number_of_vectors;
-    }
     elapsed_time += MPI_Wtime();
 
     printf("Time taken for Mean Vector calculation\t%lf\n", elapsed_time);
@@ -188,21 +183,47 @@ int main(int argc, char **argv) {
       printf("%f\t", MeanVector[i]);
     }
     printf("\n\n");
+    elapsed_time = -MPI_Wtime();
+  }
+
+  float **DeviationMatrix, **DeviationMatrixTranspose;
+  DeviationMatrix = (float**)malloc(number_of_vectors_per_process*sizeof(float*));
+  DeviationMatrixTranspose = (float**)malloc(4*sizeof(float*));
+  for(int i = 0; i < number_of_vectors_per_process; i++) {
+    DeviationMatrix[i] = (float*)malloc(4*sizeof(float));
+  }
+
+  for(int i = 0; i < 4; i++) {
+    DeviationMatrixTranspose[i] = (float*)malloc(number_of_vectors_per_process*sizeof(float));
+  }
+
+  findDeviationMatrix(DeviationMatrix, MeanVector, VectorMatrix, 0, number_of_vectors_per_process - 1);
+
+  for(int i = 0; i < 4; i++) {
+    for(int j = 0; j < number_of_vectors_per_process; j++) {
+      DeviationMatrixTranspose[i][j] = DeviationMatrix[j][i];
+    }
+  }
+
+  for(int i = 0; i < 4; i++) {
+    for(int j = 0; j < 4; j++) {
+      float tmp = findDotProduct(DeviationMatrixTranspose[i], DeviationMatrixTranspose[j], 0, number_of_vectors_per_process - 1);
+      MPI_Reduce(&tmp, &CovarianceMatrix[i][j], 1, MPI_FLOAT, MPI_SUM, root, MPI_COMM_WORLD);
+    }
   }
 
   if(my_rank == root) {
-    // findCovarianceMatrix(CovarianceMatrix, MeanVector, VectorMatrix, number_of_vectors_per_process);
-  }
+    elapsed_time += MPI_Wtime();
 
-  if(my_rank == root) {
-    // printf("Covariance Matrix:\n\n");
-    // for(int i = 0; i < 4; i++) {
-    //   for(int j = 0; j < 4; j++) {
-    //     printf("%f\t", CovarianceMatrix[i][j]);
-    //   }
-    //   printf("\n");
-    // }
-    // printf("\n");
+    printf("Time taken for Covariance Matrix calculation\t%lf\n", elapsed_time);
+    printf("Covariance Matrix:\n\n");
+    for(int i = 0; i < 4; i++) {
+      for(int j = 0; j < 4; j++) {
+        printf("%f\t", CovarianceMatrix[i][j]);
+      }
+      printf("\n");
+    }
+    printf("\n");
   }
   MPI_Finalize();
   return 0;
