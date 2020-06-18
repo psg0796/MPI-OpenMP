@@ -1,5 +1,6 @@
 #include <stdio.h>
 #include <stdlib.h>
+#include <time.h>
 #include <mpi.h>
 
 #define INPUT_FILE "iris.data"
@@ -75,7 +76,8 @@ int main(int argc, char **argv) {
   int number_of_vectors = 0;
   int my_rank, num_process, root = 0;
   int K;
-  double elapsed_time;
+  clock_t clock_start, clock_end;
+  double cpu_time_used;
 
   MPI_Init(&argc, &argv); // Initialise MPI
   MPI_Comm_rank(MPI_COMM_WORLD, &my_rank); // Get my rank
@@ -123,7 +125,7 @@ int main(int argc, char **argv) {
 
   int number_of_vectors_per_process = number_of_vectors/num_process, start = my_rank * number_of_vectors_per_process, end = start + number_of_vectors_per_process;
 
-  elapsed_time = - MPI_Wtime();
+  clock_start = clock();
   while(!reachedConvergence) {
     int reachedConvergenceLocal = 1;
     /**
@@ -184,11 +186,12 @@ int main(int argc, char **argv) {
     }
   }
 
-  elapsed_time += MPI_Wtime();
+  clock_end = clock();
+  cpu_time_used = ((double) (clock_end - clock_start)) / CLOCKS_PER_SEC;
   MPI_Finalize();
 
   if(my_rank == 0) {
-    printf("Time taken for K Mean clusters calculation\t%lf\n\n", elapsed_time);
+    printf("CPU time = %lf\n", cpu_time_used);
 
     for(int i = 0; i < K; i++) {
       for(int j = 0; j < 4; j++) {

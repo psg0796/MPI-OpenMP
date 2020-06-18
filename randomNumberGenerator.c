@@ -1,11 +1,13 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <mpi.h>
+#include <time.h>
 
 int main(int argc, char* argv[]) {
   int N, num_process, printCount, my_rank;
   time_t t;
-  double elapsed_time;
+  clock_t start, end;
+  double cpu_time_used;
 
   MPI_Init(&argc, &argv); // Initialise MPI
   MPI_Comm_rank(MPI_COMM_WORLD, &my_rank); // Get my rank
@@ -17,7 +19,7 @@ int main(int argc, char* argv[]) {
     printf("Enter the number of random numbers to be generated \n");
     scanf("%d", &N);
     printCount = N/num_process;
-    elapsed_time = - MPI_Wtime();
+    start = clock();
     fp = fopen("randomNumbers.txt", "w");
     for(int i = 0; i < N%num_process; i++) {
       fprintf(fp, "%d\n", rand());
@@ -38,8 +40,9 @@ int main(int argc, char* argv[]) {
   fclose(fp);
 
   if(my_rank == 0){  
-    elapsed_time += MPI_Wtime();
-    printf("Time taken = %f\n\n", elapsed_time);
+    end = clock();
+    cpu_time_used = ((double) (end - start)) / CLOCKS_PER_SEC;
+    printf("CPU time = %lf\n", cpu_time_used);
   }
 
   MPI_Finalize();
