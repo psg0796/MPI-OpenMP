@@ -1,6 +1,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <mpi.h>
+#include <time.h>
 
 void swap(int *a, int *b) {
   int tmp = *a;
@@ -87,7 +88,8 @@ void storeNumbersFromFileRead(char inputFileName[], int numbers[], int size) {
 }
 
 int main(int argc, char* argv[]) {
-  double elapsed_time;
+  clock_t clock_start, clock_end;
+  double cpu_time_used;
   int num_process, my_rank, start, end;
   int root = 0;
   int *numbers;
@@ -114,6 +116,7 @@ int main(int argc, char* argv[]) {
     numbers = (int*)malloc(sizeof(int)*size);
 	  storeNumbersFromFileRead(inputFileName, numbers, size);
 
+    clock_start = clock();
 	  endPoints[0][0] = 0;
 	  endPoints[0][1] = size - 1;
 	  cnt++;
@@ -145,7 +148,6 @@ int main(int argc, char* argv[]) {
       sendcounts[chunk] = endPoints[chunk][1] - endPoints[chunk][0] + 1;
       displs[chunk] = endPoints[chunk][0];
     }
-    elapsed_time = - MPI_Wtime();
   }
 
 	MPI_Scatter(sendcounts, 1, MPI_INT, &sendCountBackToRoot, 1, MPI_INT, root, MPI_COMM_WORLD);
@@ -159,8 +161,9 @@ int main(int argc, char* argv[]) {
   MPI_Gatherv(numbersPerProcess, sendCountBackToRoot, MPI_INT, numbers, sendcounts, displs, MPI_INT, root, MPI_COMM_WORLD);
 
   if(my_rank == root) {
-    elapsed_time += MPI_Wtime();
-    printf("Time taken = %f\n", elapsed_time);
+    clock_end = clock();
+    cpu_time_used = ((double) (clock_end - clock_start)) / CLOCKS_PER_SEC;
+    printf("CPU time = %lf\n", cpu_time_used);
     // printArraySlice(numbers, 0, size - 1);
   }
 

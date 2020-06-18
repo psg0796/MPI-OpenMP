@@ -1,6 +1,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <mpi.h>
+#include <time.h>
 
 #define INPUT_FILE "iris.data"
 
@@ -124,7 +125,8 @@ void findCovarianceMatrix(float **CovarianceMatrix, float MeanVector[], float **
 }
 
 int main(int argc, char **argv) {
-  double elapsed_time;
+  clock_t start, end;
+  double cpu_time_used;
   int number_of_vectors = 0, number_of_vectors_per_process = 0;
   float **VectorMatrix, CovarianceMatrix[4][4], *VectorMatrixLinear, VectorMatrixLinearBuff[1000000];
   float MeanVector[4], SumVector[4];
@@ -163,7 +165,7 @@ int main(int argc, char **argv) {
 
   float SumVectorLocal[4];
  
-  elapsed_time = - MPI_Wtime();
+  start = clock();
   findSumVector(SumVectorLocal, VectorMatrix, 0, number_of_vectors_per_process - 1);
 
   for(int i = 0; i < 4; i++) {
@@ -175,15 +177,16 @@ int main(int argc, char **argv) {
   }
 
   if(my_rank == root) {
-    elapsed_time += MPI_Wtime();
+    end = clock();
+    cpu_time_used = ((double) (end - start)) / CLOCKS_PER_SEC;
+    printf("CPU time for Mean Vector = %lf\n", cpu_time_used);
 
-    printf("Time taken for Mean Vector calculation\t%lf\n\n", elapsed_time);
     printf("Mean Vector:\n\n");
     for(int i = 0; i < 4; i++) {
       printf("%f\t", MeanVector[i]);
     }
     printf("\n\n");
-    elapsed_time = -MPI_Wtime();
+    start = clock();
   }
 
   float **DeviationMatrix, **DeviationMatrixTranspose;
@@ -213,9 +216,10 @@ int main(int argc, char **argv) {
   }
 
   if(my_rank == root) {
-    elapsed_time += MPI_Wtime();
+    end = clock();
+    cpu_time_used = ((double) (end - start)) / CLOCKS_PER_SEC;
+    printf("CPU time for Covariance Matrix = %lf\n", cpu_time_used);
 
-    printf("Time taken for Covariance Matrix calculation\t%lf\n\n", elapsed_time);
     printf("Covariance Matrix:\n\n");
     for(int i = 0; i < 4; i++) {
       for(int j = 0; j < 4; j++) {
