@@ -1,13 +1,11 @@
 #include <stdio.h>
 #include <stdlib.h>
-#include <time.h>
-#include <mpi.h>
 
 #define INPUT_FILE "iris.data"
 
-int getNumberOfVectorsInFile(char inputFileName[]) {
+long getNumberOfVectorsInFile(char inputFileName[]) {
   FILE *fp;
-  int size = 0;
+  long size = 0;
   fp = fopen(inputFileName, "r");
   while(!feof(fp)) {
     char tmp[100];
@@ -19,7 +17,7 @@ int getNumberOfVectorsInFile(char inputFileName[]) {
   return size;
 }
 
-void storeNumbersFromFileRead(char inputFileName[], float **numbers, int size) {
+void storeNumbersFromFileRead(char inputFileName[], float **numbers, long size) {
   FILE *fp;
   fp = fopen(inputFileName, "r");
   for(int i = 0; i < size; i++) {
@@ -34,18 +32,18 @@ void storeNumbersFromFileRead(char inputFileName[], float **numbers, int size) {
   fclose(fp);
 }
 
-float getEuclideanDistance(float A[], float B[], int size) {
+float getEuclideanDistance(float A[], float B[], long size) {
   float dist = 0;
-  for(int i = 0; i < size; i++) {
+  for(long i = 0; i < size; i++) {
     dist += ((A[i] - B[i])*(A[i] - B[i]));
   }
   return dist;
 }
 
-int getNearestCluster(float *VectorMatrix, float **KMeanVectors, int K) {
-  int minK = 0;
+long getNearestCluster(float *VectorMatrix, float **KMeanVectors, long K) {
+  long minK = 0;
   float minDistance = getEuclideanDistance(VectorMatrix, KMeanVectors[0], 4);
-  for(int k = 1; k < K; k++) {
+  for(long k = 1; k < K; k++) {
     float distance = getEuclideanDistance(VectorMatrix, KMeanVectors[k], 4);
     if(distance < minDistance) {
       minDistance = distance;
@@ -55,11 +53,11 @@ int getNearestCluster(float *VectorMatrix, float **KMeanVectors, int K) {
   return minK;
 }
 
-int updateClusterCenters(int start, int end, float **VectorMatrix, float **KMeanVectors, int K, int ItemCountPerCluster[], int VectorClusterCenter[]) {
+int updateClusterCenters(long start, long end, float **VectorMatrix, float **KMeanVectors, long K, long ItemCountPerCluster[], long VectorClusterCenter[]) {
   int reachedConvergence = 1;
 
-  for(int i = start; i <= end; i++) {
-    int minK = getNearestCluster(VectorMatrix[i], KMeanVectors, K);
+  for(long i = start; i <= end; i++) {
+    long minK = getNearestCluster(VectorMatrix[i], KMeanVectors, K);
 
     ItemCountPerCluster[minK]++;
 
@@ -72,91 +70,61 @@ int updateClusterCenters(int start, int end, float **VectorMatrix, float **KMean
   return reachedConvergence;
 }
 
-int main(int argc, char **argv) {
-  int number_of_vectors = 0;
-  int my_rank, num_process, root = 0;
-  int K;
-  clock_t clock_start, clock_end;
-  double cpu_time_used;
-
-  MPI_Init(&argc, &argv); // Initialise MPI
-  MPI_Comm_rank(MPI_COMM_WORLD, &my_rank); // Get my rank
-  MPI_Comm_size(MPI_COMM_WORLD, &num_process); // Get the total number of processors
-
+int main() {
+  long number_of_vectors = 0;
   number_of_vectors = getNumberOfVectorsInFile(INPUT_FILE);
-
-  if(number_of_vectors % num_process != 0) {
-    printf("Please enter number of processes such that it is a factor of \t%d\n Sorry for inconvenience.\n", number_of_vectors);
-    exit(0);
-  }
 
   float **VectorMatrix;
   VectorMatrix = (float**)malloc(number_of_vectors*sizeof(float*));
-  for(int i = 0; i < number_of_vectors; i++) {
+  for(long i = 0; i < number_of_vectors; i++) {
     VectorMatrix[i] = (float*)malloc(4*sizeof(float));
   }
   
   storeNumbersFromFileRead(INPUT_FILE, VectorMatrix, number_of_vectors);
 
-  if(my_rank == 0) {
-    printf("Enter the value of K: ");
-    scanf("%d", &K);
-  }
-
-  MPI_Bcast(&K, 1, MPI_INT, root, MPI_COMM_WORLD);
+  long K;
+  printf("Enter the value of K: ");
+  scanf("%ld", &K);
 
   float **KMeanVectors;
-  int ItemCountPerCluster[K], VectorClusterCenter[number_of_vectors];
+  long ItemCountPerCluster[K], VectorClusterCenter[number_of_vectors];
   /**
    * Initialization of K clusters
    */
   KMeanVectors = (float**)malloc(K*sizeof(float*));
-  for(int i = 0; i < K; i++) {
+  for(long i = 0; i < K; i++) {
     KMeanVectors[i] = (float*)malloc(4*sizeof(float));
     for(int j = 0; j < 4; j++) {
       KMeanVectors[i][j] = VectorMatrix[i][j];
     }
   }
-  for(int i = 0; i < number_of_vectors; i++) {
+  for(long i = 0; i < number_of_vectors; i++) {
     VectorClusterCenter[i] = rand()%K;
   }
 
   int reachedConvergence = 0;
-
-  int number_of_vectors_per_process = number_of_vectors/num_process, start = my_rank * number_of_vectors_per_process, end = start + number_of_vectors_per_process;
-
-  clock_start = clock();
   while(!reachedConvergence) {
-    int reachedConvergenceLocal = 1;
+    reachedConvergence = 1;
     /**
      * Initialize the number of data points in each cluster
      */
-    int ItemCountPerClusterLocal[K];
-    for(int i = 0; i < K; i++) {
-      ItemCountPerClusterLocal[i] = 0;
+    for(long i = 0; i < K; i++) {
+      ItemCountPerCluster[i] = 0;
     }
 
     /**
      * Find nearest cluster for each data item.
      * Returns 0 if the convergence is not reached else 1.
      */
-    reachedConvergenceLocal = updateClusterCenters(start, end - 1, VectorMatrix, KMeanVectors, K, ItemCountPerClusterLocal, VectorClusterCenter);
-
-    MPI_Allreduce(&reachedConvergenceLocal, &reachedConvergence, 1, MPI_INT, MPI_PROD, MPI_COMM_WORLD);
-
-    for(int i = 0; i < K; i++) {
-      MPI_Allreduce(&ItemCountPerClusterLocal[i], &ItemCountPerCluster[i], 1, MPI_INT, MPI_SUM, MPI_COMM_WORLD);
-    }    
-
+    reachedConvergence *= updateClusterCenters(0, number_of_vectors - 1, VectorMatrix, KMeanVectors, K, ItemCountPerCluster, VectorClusterCenter);
+    
     /**
      * Initialize the K mean vectors.
      */
-    float KMeanVectorsLocal[K][4];
-
-    for(int i = 0; i < K; i++) {
+    for(long i = 0; i < K; i++) {
       if(ItemCountPerCluster[i] != 0) {
-        for(int j = 0; j < 4; j++) {
-          KMeanVectorsLocal[i][j] = 0;
+        for(long j = 0; j < 4; j++) {
+          KMeanVectors[i][j] = 0;
         }
       }
     }
@@ -165,42 +133,28 @@ int main(int argc, char **argv) {
      * Update each mean vector with the summation of all the vectors falling in that cluster.
      * After taking the summation, the mean of clusters are calculated in the followed loop.
      */
-    for(int i = start; i < end; i++) {
-      for(int j = 0; j < 4; j++) {
-        KMeanVectorsLocal[VectorClusterCenter[i]][j] += VectorMatrix[i][j];
+    for(long i = 0; i < number_of_vectors; i++) {
+      for(long j = 0; j < 4; j++) {
+        KMeanVectors[VectorClusterCenter[i]][j] += VectorMatrix[i][j];
       }
     }
 
-    for(int i = 0; i < K; i++) {
-      for(int j = 0; j < 4; j++) {
-        MPI_Allreduce(&KMeanVectorsLocal[i][j], &KMeanVectors[i][j], 1, MPI_FLOAT, MPI_SUM, MPI_COMM_WORLD);
-      }
-    }
-
-    for(int i = 0; i < K; i++) {
+    for(long i = 0; i < K; i++) {
       if(ItemCountPerCluster[i] != 0) {
-        for(int j = 0; j < 4; j++) {
+        for(long j = 0; j < 4; j++) {
           KMeanVectors[i][j] /= ItemCountPerCluster[i];
         }
       }
     }
   }
 
-  clock_end = clock();
-  cpu_time_used = ((double) (clock_end - clock_start)) / CLOCKS_PER_SEC;
-  MPI_Finalize();
-
-  if(my_rank == 0) {
-    printf("CPU time = %lf\n", cpu_time_used);
-
-    for(int i = 0; i < K; i++) {
-      for(int j = 0; j < 4; j++) {
-        printf("%f\t", KMeanVectors[i][j]);
-      }
-      printf("\n");
+  for(long i = 0; i < K; i++) {
+    for(long j = 0; j < 4; j++) {
+      printf("%f\t", KMeanVectors[i][j]);
     }
     printf("\n");
   }
+  printf("\n");
 
   return 0;
 }
