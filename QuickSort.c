@@ -2,7 +2,7 @@
 #include <time.h>
 #include <omp.h>
 
-#define MAX_NUM_THREADS 4
+#define MAX_NUM_THREADS 2
 
 void swap(long *a, long *b) {
   long tmp = *a;
@@ -42,13 +42,26 @@ long Partition(long numbers[], long start, long end) {
   return i + 1;
 }
 
-void QuickSort(long numbers[], long start, long end) {
+void QuickSort(long numbers[], long start, long end, long SEQUENTIAL_MAX) {
   if(start < end) {
     long partitionPoint = Partition(numbers, start, end);
-    #pragma omp task
-    QuickSort(numbers, start, partitionPoint - 1);
-    #pragma omp task
-    QuickSort(numbers, partitionPoint + 1, end);
+    // if(end - start < N) {
+    //   QuickSort(numbers, start, partitionPoint - 1, N);
+    //   QuickSort(numbers, partitionPoint + 1, end, N);
+    // } else {
+    if(partitionPoint - start < SEQUENTIAL_MAX) {
+      QuickSort(numbers, start, partitionPoint - 1, SEQUENTIAL_MAX);
+    } else {
+      #pragma omp task
+        QuickSort(numbers, start, partitionPoint - 1, SEQUENTIAL_MAX);
+    }
+
+    if(end - partitionPoint < SEQUENTIAL_MAX) {
+      QuickSort(numbers, partitionPoint + 1, end, SEQUENTIAL_MAX);
+    } else {
+      #pragma omp task
+        QuickSort(numbers, partitionPoint + 1, end, SEQUENTIAL_MAX);
+    }
   }
 }
 
@@ -86,10 +99,10 @@ int main() {
   omp_set_num_threads(MAX_NUM_THREADS);
   clock_t start, end;
   double cpu_time_used;
-  char inputFileName[100];
+  char inputFileName[100] = "randomNumbers.txt";
   long size = 0;
-  printf("Enter the input file location\n");
-  scanf("%s", inputFileName);
+  // printf("Enter the input file location\n");
+  // scanf("%s", inputFileName);
 
   size = getFileSize(inputFileName);
   long numbers[size];
@@ -98,8 +111,8 @@ int main() {
   start = clock();
 
   #pragma omp parallel
-  #pragma omp single
-  QuickSort(numbers, 0, size - 1);
+  #pragma omp single nowait
+  QuickSort(numbers, 0, size - 1, size/MAX_NUM_THREADS);
 
   end = clock();
   cpu_time_used = ((double) (end - start)) / CLOCKS_PER_SEC;

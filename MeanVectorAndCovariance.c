@@ -3,7 +3,7 @@
 #include <time.h>
 #include <omp.h>
 
-#define MAX_NUM_THREADS 40
+#define MAX_NUM_THREADS 2
 #define INPUT_FILE "iris.data"
 
 long getNumberOfVectorsInFile(char inputFileName[]) {
@@ -57,13 +57,11 @@ void findMeanVector(float MeanVector[], float **VectorMatrix, long number_of_vec
   long i, j;
   // findSumVector(SumVector, VectorMatrix, 0, number_of_vectors - 1);
 
-  #pragma omp parallel for reduction(+:SumVector)
-  for(i = 0; i < number_of_vectors; i++) {
-    SumVector[0] += VectorMatrix[i][0];
-    SumVector[1] += VectorMatrix[i][1];
-    SumVector[2] += VectorMatrix[i][2];
-    SumVector[3] += VectorMatrix[i][3];
-  }
+  #pragma omp parallel for reduction(+:SumVector) private(j)
+  for(i = 0; i < 4; i++)
+    for(j = 0; j < number_of_vectors; j++) {
+      SumVector[i] += VectorMatrix[j][i];
+    }
 
   MeanVector[0] = SumVector[0] / number_of_vectors;
   MeanVector[1] = SumVector[1] / number_of_vectors;
@@ -119,35 +117,27 @@ void findCovarianceMatrix(float (*CovarianceMatrix)[4], float MeanVector[], floa
     DeviationMatrixTranspose[i] = (float*)malloc(number_of_vectors*sizeof(float));
   }
 
-  #pragma omp parallel for
-  for(i = 0; i < number_of_vectors; i++) {
-    DeviationMatrix[i][0] = VectorMatrix[i][0] - MeanVector[0];
-    DeviationMatrix[i][1] = VectorMatrix[i][1] - MeanVector[1];
-    DeviationMatrix[i][2] = VectorMatrix[i][2] - MeanVector[2];
-    DeviationMatrix[i][3] = VectorMatrix[i][3] - MeanVector[3];
-  }
+  #pragma omp parallel for private(j)
+  for(i = 0; i < 4; i++)
+    for(j = 0; j < number_of_vectors; j++) {
+      DeviationMatrix[j][i] = VectorMatrix[j][i] - MeanVector[i];
+    }
   // findDeviationMatrix(DeviationMatrix, MeanVector, VectorMatrix, 0, number_of_vectors - 1);
 
-  #pragma omp parallel for
-  for(i = 0; i < number_of_vectors; i++) {
-    DeviationMatrixTranspose[0][i] = DeviationMatrix[i][0];
-    DeviationMatrixTranspose[1][i] = DeviationMatrix[i][1];
-    DeviationMatrixTranspose[2][i] = DeviationMatrix[i][2];
-    DeviationMatrixTranspose[3][i] = DeviationMatrix[i][3];
-    // printf("%f ", DeviationMatrixTranspose[i][j]);
-  }
-  // printf("\n");
-
   #pragma omp parallel for private(j)
+  for(i = 0; i < 4; i++)
+    for(j = 0; j < number_of_vectors; j++) {
+      DeviationMatrixTranspose[i][j] = DeviationMatrix[j][i];
+      // printf("%f ", DeviationMatrixTranspose[i][j]);
+    }
+    // printf("\n");
+
+  #pragma omp parallel for private(j, k) reduction(+:CovarianceMatrix[:4])
   for(i = 0; i < 4; i++) {
     for(j = 0; j < 4; j++) {
-      float dot = 0;
-      #pragma omp parallel for reduction(+:dot)
       for(k = 0; k < number_of_vectors; k++) {
-        dot += DeviationMatrixTranspose[i][k]*DeviationMatrixTranspose[j][k];
+        CovarianceMatrix[i][j] += DeviationMatrixTranspose[i][k]*DeviationMatrixTranspose[j][k];
       }
-      CovarianceMatrix[i][j] = dot;
-    // CovarianceMatrix[i][j] = findDotProduct(DeviationMatrixTranspose[i], DeviationMatrixTranspose[j], 0, number_of_vectors - 1);
     }
   }
 }
