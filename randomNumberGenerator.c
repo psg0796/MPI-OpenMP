@@ -1,8 +1,12 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <time.h>
+#include <omp.h>
+
+#define MAX_NUM_THREADS 4
 
 int main() {
+  omp_set_num_threads(MAX_NUM_THREADS);
   long N;
   FILE *fp;
   time_t t;
@@ -15,6 +19,7 @@ int main() {
   start = clock();
   fp = fopen("randomNumbers.txt", "w");
   srand((unsigned) time(&t));
+  #pragma omp parallel for
   for (long i = 0; i < N; i++) {
     fprintf(fp, "%d\n", rand());
   }
