@@ -1,5 +1,8 @@
 #include <stdio.h>
 #include <time.h>
+#include <omp.h>
+
+#define MAX_NUM_THREADS 4
 
 void swap(long *a, long *b) {
   long tmp = *a;
@@ -42,7 +45,9 @@ long Partition(long numbers[], long start, long end) {
 void QuickSort(long numbers[], long start, long end) {
   if(start < end) {
     long partitionPoint = Partition(numbers, start, end);
+    #pragma omp task
     QuickSort(numbers, start, partitionPoint - 1);
+    #pragma omp task
     QuickSort(numbers, partitionPoint + 1, end);
   }
 }
@@ -78,6 +83,7 @@ void storeNumbersFromFileRead(char inputFileName[], long numbers[], long size) {
 }
 
 int main() {
+  omp_set_num_threads(MAX_NUM_THREADS);
   clock_t start, end;
   double cpu_time_used;
   char inputFileName[100];
@@ -90,6 +96,9 @@ int main() {
   storeNumbersFromFileRead(inputFileName, numbers, size);
 
   start = clock();
+
+  #pragma omp parallel
+  #pragma omp single
   QuickSort(numbers, 0, size - 1);
 
   end = clock();
