@@ -1,7 +1,9 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <time.h>
+#include <omp.h>
 
+#define MAX_NUM_THREADS 2
 #define INPUT_FILE "iris.data"
 
 long getNumberOfVectorsInFile(char inputFileName[]) {
@@ -51,10 +53,19 @@ void findSumVector(float SumVector[], float **VectorMatrix, long start, long end
 }
 
 void findMeanVector(float MeanVector[], float **VectorMatrix, long number_of_vectors) {
-  float SumVector[4];
-  findSumVector(SumVector, VectorMatrix, 0, number_of_vectors - 1);
+  float SumVector[4] = {0};
+  int i, j;
+  // findSumVector(SumVector, VectorMatrix, 0, number_of_vectors - 1);
 
-  for(int i = 0; i < 4; i++) {
+  #pragma omp parallel for reduction(+:SumVector) private(j)
+    for(i = 0; i < number_of_vectors; i++) {
+      for(j = 0; j < 4; j++) {
+        SumVector[j] += VectorMatrix[i][j];
+      } 
+    }
+
+  #pragma omp parallel for
+  for(i = 0; i < 4; i++) {
     MeanVector[i] = SumVector[i] / number_of_vectors;
   }
 }
@@ -124,6 +135,7 @@ void findCovarianceMatrix(float **CovarianceMatrix, float MeanVector[], float **
 }
 
 int main() {
+  omp_set_num_threads(MAX_NUM_THREADS);
   clock_t start, end;
   double cpu_time_used;
   long number_of_vectors = 0;
