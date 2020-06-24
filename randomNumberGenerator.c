@@ -19,8 +19,9 @@ int main() {
   start = clock();
   fp = fopen("randomNumbers.txt", "w");
   srand((unsigned) time(&t));
+  long i;
   #pragma omp parallel for
-  for (long i = 0; i < N; i++) {
+  for (i = 0; i < N; i++) {
     fprintf(fp, "%d\n", rand());
   }
   fclose(fp);
