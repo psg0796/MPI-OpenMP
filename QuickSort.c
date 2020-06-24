@@ -1,4 +1,5 @@
 #include <stdio.h>
+#include <time.h>
 
 void swap(long *a, long *b) {
   long tmp = *a;
@@ -77,6 +78,8 @@ void storeNumbersFromFileRead(char inputFileName[], long numbers[], long size) {
 }
 
 int main() {
+  clock_t start, end;
+  double cpu_time_used;
   char inputFileName[100];
   long size = 0;
   printf("Enter the input file location\n");
@@ -86,8 +89,13 @@ int main() {
   long numbers[size];
   storeNumbersFromFileRead(inputFileName, numbers, size);
 
-  // printArraySlice(numbers, 0, size - 1);
+  start = clock();
   QuickSort(numbers, 0, size - 1);
-  printArraySlice(numbers, 0, size - 1);
+
+  end = clock();
+  cpu_time_used = ((double) (end - start)) / CLOCKS_PER_SEC;
+  printf("CPU time = %lf\n", cpu_time_used);
+
+  // printArraySlice(numbers, 0, size - 1);
   return 0;
 }

@@ -1,5 +1,6 @@
 #include <stdio.h>
 #include <stdlib.h>
+#include <time.h>
 
 #define INPUT_FILE "iris.data"
 
@@ -123,6 +124,8 @@ void findCovarianceMatrix(float **CovarianceMatrix, float MeanVector[], float **
 }
 
 int main() {
+  clock_t start, end;
+  double cpu_time_used;
   long number_of_vectors = 0;
   number_of_vectors = getNumberOfVectorsInFile(INPUT_FILE);
 
@@ -141,7 +144,12 @@ int main() {
 
   storeNumbersFromFileRead(INPUT_FILE, VectorMatrix, number_of_vectors);
 
+  start = clock();
   findMeanVector(MeanVector, VectorMatrix, number_of_vectors);
+
+  end = clock();
+  cpu_time_used = ((double) (end - start)) / CLOCKS_PER_SEC;
+  printf("CPU time for Mean Vector = %lf\n", cpu_time_used);
 
   printf("Mean Vector:\n\n");
   for(int i = 0; i < 4; i++) {
@@ -149,7 +157,13 @@ int main() {
   }
   printf("\n\n");
 
+  start = clock();
+
   findCovarianceMatrix(CovarianceMatrix, MeanVector, VectorMatrix, number_of_vectors);
+
+  end = clock();
+  cpu_time_used = ((double) (end - start)) / CLOCKS_PER_SEC;
+  printf("CPU time for Covariance Matrix = %lf\n", cpu_time_used);
 
   printf("Covariance Matrix:\n\n");
   for(int i = 0; i < 4; i++) {

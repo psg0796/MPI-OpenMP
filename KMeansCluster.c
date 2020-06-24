@@ -1,5 +1,6 @@
 #include <stdio.h>
 #include <stdlib.h>
+#include <time.h>
 
 #define INPUT_FILE "iris.data"
 
@@ -73,6 +74,8 @@ int updateClusterCenters(long start, long end, float **VectorMatrix, float **KMe
 int main() {
   long number_of_vectors = 0;
   number_of_vectors = getNumberOfVectorsInFile(INPUT_FILE);
+  clock_t start, end;
+  double cpu_time_used;
 
   float **VectorMatrix;
   VectorMatrix = (float**)malloc(number_of_vectors*sizeof(float*));
@@ -103,6 +106,7 @@ int main() {
   }
 
   int reachedConvergence = 0;
+  start = clock();
   while(!reachedConvergence) {
     reachedConvergence = 1;
     /**
@@ -147,6 +151,10 @@ int main() {
       }
     }
   }
+
+  end = clock();
+  cpu_time_used = ((double) (end - start)) / CLOCKS_PER_SEC;
+  printf("CPU time = %lf\n", cpu_time_used);
 
   for(long i = 0; i < K; i++) {
     for(long j = 0; j < 4; j++) {
