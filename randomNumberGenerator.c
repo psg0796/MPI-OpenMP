@@ -3,7 +3,7 @@
 #include <time.h>
 #include <omp.h>
 
-#define MAX_NUM_THREADS 4
+#define MAX_NUM_THREADS 2
 
 int main() {
   omp_set_num_threads(MAX_NUM_THREADS);

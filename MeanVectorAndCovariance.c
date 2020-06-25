@@ -20,7 +20,7 @@ long getNumberOfVectorsInFile(char inputFileName[]) {
   return size;
 }
 
-void storeNumbersFromFileRead(char inputFileName[], float **numbers, long size) {
+void storeNumbersFromFileRead(char inputFileName[], float (*numbers)[4], long size) {
   FILE *fp;
   fp = fopen(inputFileName, "r");
   for(int i = 0; i < size; i++) {
@@ -35,7 +35,7 @@ void storeNumbersFromFileRead(char inputFileName[], float **numbers, long size) 
   fclose(fp);
 }
 
-void findSumVector(float SumVector[], float **VectorMatrix, long start, long end) {
+void findSumVector(float SumVector[], float (*VectorMatrix)[4], long start, long end) {
   if(start == end) {
     for(int i = 0; i < 4; i++) {
       SumVector[i] = VectorMatrix[start][i];
@@ -52,7 +52,7 @@ void findSumVector(float SumVector[], float **VectorMatrix, long start, long end
   }
 }
 
-void findMeanVector(float MeanVector[], float **VectorMatrix, long number_of_vectors) {
+void findMeanVector(float MeanVector[], float (*VectorMatrix)[4], long number_of_vectors) {
   float SumVector[4] = {0};
   long i, j;
   // findSumVector(SumVector, VectorMatrix, 0, number_of_vectors - 1);
@@ -72,7 +72,7 @@ void findMeanVector(float MeanVector[], float **VectorMatrix, long number_of_vec
 /**
  * Function calculates the deviation matrix from mean; i.e, Xij - Xj(mean)
  */
-void findDeviationMatrix(float **DeviationMatrix, float MeanVector[], float **VectorMatrix, long start, long end) {
+void findDeviationMatrix(float (*DeviationMatrix)[4], float MeanVector[], float (*VectorMatrix)[4], long start, long end) {
   if(end - start < 4) {
     for(long i = start; i <= end; i++) {
       for(long j = 0; j < 4; j++) {
@@ -104,33 +104,21 @@ float findDotProduct(float A[], float B[], long start, long end) {
   }
 }
 
-void findCovarianceMatrix(float (*CovarianceMatrix)[4], float MeanVector[], float **VectorMatrix, long number_of_vectors) {
+void findCovarianceMatrix(float (*CovarianceMatrix)[4], float MeanVector[], float (*VectorMatrix)[4], long number_of_vectors) {
   long i, j, k;
-  float **DeviationMatrix, **DeviationMatrixTranspose;
-  DeviationMatrix = (float**)malloc(number_of_vectors*sizeof(float*));
-  DeviationMatrixTranspose = (float**)malloc(4*sizeof(float*));
-  for(i = 0; i < number_of_vectors; i++) {
-    DeviationMatrix[i] = (float*)malloc(4*sizeof(float));
-  }
-
-  for(i = 0; i < 4; i++) {
-    DeviationMatrixTranspose[i] = (float*)malloc(number_of_vectors*sizeof(float));
-  }
+  float DeviationMatrix[number_of_vectors][4], DeviationMatrixTranspose[4][number_of_vectors];
 
   #pragma omp parallel for private(j)
   for(i = 0; i < 4; i++)
     for(j = 0; j < number_of_vectors; j++) {
       DeviationMatrix[j][i] = VectorMatrix[j][i] - MeanVector[i];
     }
-  // findDeviationMatrix(DeviationMatrix, MeanVector, VectorMatrix, 0, number_of_vectors - 1);
 
   #pragma omp parallel for private(j)
   for(i = 0; i < 4; i++)
     for(j = 0; j < number_of_vectors; j++) {
       DeviationMatrixTranspose[i][j] = DeviationMatrix[j][i];
-      // printf("%f ", DeviationMatrixTranspose[i][j]);
     }
-    // printf("\n");
 
   #pragma omp parallel for private(j, k) reduction(+:CovarianceMatrix[:4])
   for(i = 0; i < 4; i++) {
@@ -149,17 +137,10 @@ int main() {
   long number_of_vectors = 0;
   number_of_vectors = getNumberOfVectorsInFile(INPUT_FILE);
 
-  float **VectorMatrix, CovarianceMatrix[4][4];
+  float VectorMatrix[number_of_vectors][4], CovarianceMatrix[4][4];
   float MeanVector[4];
-  VectorMatrix = (float**)malloc(number_of_vectors*sizeof(float*));
-  // CovarianceMatrix = (float**)malloc(4*sizeof(float*));
-
-  for(long i = 0; i < number_of_vectors; i++) {
-    VectorMatrix[i] = (float*)malloc(4*sizeof(float));
-  }
 
   for(long i = 0; i < 4; i++) {
-  //   CovarianceMatrix[i] = (float*)malloc(4*sizeof(float));
     CovarianceMatrix[i][0] = CovarianceMatrix[i][1] = CovarianceMatrix[i][2] = CovarianceMatrix[i][3] = 0;
   }
 

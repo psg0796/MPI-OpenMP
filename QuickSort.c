@@ -17,7 +17,7 @@ void swap(long *a, long *b) {
 void printArraySlice(long numbers[], long start, long end) {
   printf("Start: %ld\t End: %ld\n", start, end);
   for (long i = start; i <= end; i++) {
-    printf("%ld\t", numbers[i]);
+    printf("%ld ", numbers[i]);
   }
   printf("\n\n");
 }
@@ -26,7 +26,7 @@ void printArraySlice(long numbers[], long start, long end) {
  * Creates the partition choosing a pivot element.
  * Returns the partition point for QuickSort.
  */
-long Partition(long numbers[], long start, long end) {
+long Partition(long *numbers, long start, long end) {
   long pivot = numbers[end];
   long i = start - 1;
 
@@ -42,13 +42,9 @@ long Partition(long numbers[], long start, long end) {
   return i + 1;
 }
 
-void QuickSort(long numbers[], long start, long end, long SEQUENTIAL_MAX) {
+void QuickSort(long *numbers, long start, long end, long SEQUENTIAL_MAX) {
   if(start < end) {
     long partitionPoint = Partition(numbers, start, end);
-    // if(end - start < N) {
-    //   QuickSort(numbers, start, partitionPoint - 1, N);
-    //   QuickSort(numbers, partitionPoint + 1, end, N);
-    // } else {
     if(partitionPoint - start < SEQUENTIAL_MAX) {
       QuickSort(numbers, start, partitionPoint - 1, SEQUENTIAL_MAX);
     } else {
@@ -105,14 +101,14 @@ int main() {
   // scanf("%s", inputFileName);
 
   size = getFileSize(inputFileName);
-  long numbers[size];
+  long numbers[size], *numbers_ref;
   storeNumbersFromFileRead(inputFileName, numbers, size);
 
   start = clock();
-
+  numbers_ref = numbers;
   #pragma omp parallel
   #pragma omp single nowait
-  QuickSort(numbers, 0, size - 1, size/MAX_NUM_THREADS);
+  QuickSort(numbers_ref, 0, size - 1, size/MAX_NUM_THREADS);
 
   end = clock();
   cpu_time_used = ((double) (end - start)) / CLOCKS_PER_SEC;

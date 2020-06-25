@@ -1,7 +1,9 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <time.h>
+#include <omp.h>
 
+#define MAX_NUM_THREADS 2
 #define INPUT_FILE "iris.data"
 
 long getNumberOfVectorsInFile(char inputFileName[]) {
@@ -18,7 +20,7 @@ long getNumberOfVectorsInFile(char inputFileName[]) {
   return size;
 }
 
-void storeNumbersFromFileRead(char inputFileName[], float **numbers, long size) {
+void storeNumbersFromFileRead(char inputFileName[], float (*numbers)[4], long size) {
   FILE *fp;
   fp = fopen(inputFileName, "r");
   for(int i = 0; i < size; i++) {
@@ -41,23 +43,33 @@ float getEuclideanDistance(float A[], float B[], long size) {
   return dist;
 }
 
-long getNearestCluster(float *VectorMatrix, float **KMeanVectors, long K) {
-  long minK = 0;
-  float minDistance = getEuclideanDistance(VectorMatrix, KMeanVectors[0], 4);
-  for(long k = 1; k < K; k++) {
-    float distance = getEuclideanDistance(VectorMatrix, KMeanVectors[k], 4);
-    if(distance < minDistance) {
-      minDistance = distance;
+long getNearestCluster(float *VectorMatrix, float (*KMeanVectors)[4], long K) {
+  long minK = 0, k, i;
+  float distance[K];
+
+  for(k = 0; k < K; k++) {
+    distance[k] = 0;
+  }
+
+  for(i = 0; i < 4; i++)
+    for(k = 0; k < K; k++) {
+      distance[k] += ((VectorMatrix[i] - KMeanVectors[k][i])*(VectorMatrix[i] - KMeanVectors[k][i]));
+    }
+
+  for(int k = 1; k < K; k++) {
+    if(distance[k] < distance[minK]) {
       minK = k;
     }
   }
+
   return minK;
 }
 
-int updateClusterCenters(long start, long end, float **VectorMatrix, float **KMeanVectors, long K, long ItemCountPerCluster[], long VectorClusterCenter[]) {
+int updateClusterCenters(long start, long end, float (*VectorMatrix)[4], float (*KMeanVectors)[4], long K, long ItemCountPerCluster[], long VectorClusterCenter[]) {
   int reachedConvergence = 1;
+  long i;
 
-  for(long i = start; i <= end; i++) {
+  for(i = start; i <= end; i++) {
     long minK = getNearestCluster(VectorMatrix[i], KMeanVectors, K);
 
     ItemCountPerCluster[minK]++;
@@ -72,31 +84,26 @@ int updateClusterCenters(long start, long end, float **VectorMatrix, float **KMe
 }
 
 int main() {
+  omp_set_num_threads(MAX_NUM_THREADS);
   long number_of_vectors = 0;
   number_of_vectors = getNumberOfVectorsInFile(INPUT_FILE);
   clock_t start, end;
   double cpu_time_used;
 
-  float **VectorMatrix;
-  VectorMatrix = (float**)malloc(number_of_vectors*sizeof(float*));
-  for(long i = 0; i < number_of_vectors; i++) {
-    VectorMatrix[i] = (float*)malloc(4*sizeof(float));
-  }
-  
+  float VectorMatrix[number_of_vectors][4];
+
   storeNumbersFromFileRead(INPUT_FILE, VectorMatrix, number_of_vectors);
 
   long K;
   printf("Enter the value of K: ");
   scanf("%ld", &K);
 
-  float **KMeanVectors;
+  float KMeanVectors[K][4];
   long ItemCountPerCluster[K], VectorClusterCenter[number_of_vectors];
   /**
    * Initialization of K clusters
    */
-  KMeanVectors = (float**)malloc(K*sizeof(float*));
   for(long i = 0; i < K; i++) {
-    KMeanVectors[i] = (float*)malloc(4*sizeof(float));
     for(int j = 0; j < 4; j++) {
       KMeanVectors[i][j] = VectorMatrix[i][j];
     }
@@ -107,12 +114,13 @@ int main() {
 
   int reachedConvergence = 0;
   start = clock();
+  long i, j;
   while(!reachedConvergence) {
     reachedConvergence = 1;
     /**
      * Initialize the number of data points in each cluster
      */
-    for(long i = 0; i < K; i++) {
+    for(i = 0; i < K; i++) {
       ItemCountPerCluster[i] = 0;
     }
 
@@ -120,14 +128,18 @@ int main() {
      * Find nearest cluster for each data item.
      * Returns 0 if the convergence is not reached else 1.
      */
-    reachedConvergence *= updateClusterCenters(0, number_of_vectors - 1, VectorMatrix, KMeanVectors, K, ItemCountPerCluster, VectorClusterCenter);
-    
+    long w_s = number_of_vectors/MAX_NUM_THREADS;
+    #pragma omp parallel for reduction(*:reachedConvergence) reduction(+:ItemCountPerCluster)
+    for(i = 0; i < MAX_NUM_THREADS; i++) {
+      long start = i*w_s, end = start + w_s - 1;
+      reachedConvergence *= updateClusterCenters(start, end, VectorMatrix, KMeanVectors, K, ItemCountPerCluster, VectorClusterCenter);
+    }
     /**
      * Initialize the K mean vectors.
      */
-    for(long i = 0; i < K; i++) {
+    for(i = 0; i < K; i++) {
       if(ItemCountPerCluster[i] != 0) {
-        for(long j = 0; j < 4; j++) {
+        for(j = 0; j < 4; j++) {
           KMeanVectors[i][j] = 0;
         }
       }
@@ -137,15 +149,16 @@ int main() {
      * Update each mean vector with the summation of all the vectors falling in that cluster.
      * After taking the summation, the mean of clusters are calculated in the followed loop.
      */
-    for(long i = 0; i < number_of_vectors; i++) {
-      for(long j = 0; j < 4; j++) {
-        KMeanVectors[VectorClusterCenter[i]][j] += VectorMatrix[i][j];
+    #pragma omp parallel for private(i) reduction(+:KMeanVectors)
+      for(j = 0; j < 4; j++) {
+        for(i = 0; i < number_of_vectors; i++) {
+          KMeanVectors[VectorClusterCenter[i]][j] += VectorMatrix[i][j];
       }
     }
 
-    for(long i = 0; i < K; i++) {
+    for(i = 0; i < K; i++) {
       if(ItemCountPerCluster[i] != 0) {
-        for(long j = 0; j < 4; j++) {
+        for(j = 0; j < 4; j++) {
           KMeanVectors[i][j] /= ItemCountPerCluster[i];
         }
       }
